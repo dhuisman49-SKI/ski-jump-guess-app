@@ -54,15 +54,12 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 io.on('connection', (socket) => {
     console.log('A user connected');
 
-    // ADD THIS LINE: Send current state immediately upon connection
+    // Send current state immediately upon connection
     socket.emit('stateUpdate', state);
-
-    // ... rest of socket event handlers ...
-});
 
     // Organizer Login
     socket.on('organizerLogin', (passcode) => {
-        if (passcode === 'sk1jump2026!') { // Simple organizer password
+        if (passcode === ORGANIZER_PASSWORD) {
             socket.emit('loginResult', { success: true });
         } else {
             socket.emit('loginResult', { success: false, message: 'Invalid Passcode' });
