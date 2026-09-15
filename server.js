@@ -9,31 +9,31 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Multer memory storage for Excel upload
 const upload = multer({ storage: multer.memoryStorage() });
 
+const ORGANIZER_PASSWORD = process.env.ORGANIZER_PASSWORD || 'skijump2026!';
+
+// Global In-Memory Application State
+let state = {
+    athletes: [],
+    activeAthleteIndex: null,
+    guesses: {}
+};
+
+// Serve static frontend files from 'public' folder
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// Application State (In-Memory Database)
-let state = {
-    athletes: [],          // [{ name: "John", avgScore: 120, attempts: [null, null, null], bestScore: 0 }]
-    activeAthleteIndex: null,
-    guesses: {},           // { socketId: { visitorName: "Alice", athleteIndex: 0, guess: 125 } }
-    organizerLoggedIn: false
-};
-
-// Route: Upload Excel File
+// API: Excel Roster Upload
 app.post('/api/upload', upload.single('file'), (req, res) => {
     try {
-        if (!req.file) return res.status(400).send('No file uploaded.');
+        if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
-        const sheet = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+        const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-        // Expecting Excel columns like "Name" and "AverageScore" (or "Average")
-        state.athletes = sheet.map(row => ({
+        state.athletes = sheetData.map(row => ({
             name: row.Name || row.name || 'Unknown Athlete',
             avgScore: parseFloat(row.AverageScore || row.avgScore || row.Average || 0),
             attempts: [null, null, null],
@@ -46,18 +46,19 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
         io.emit('stateUpdate', state);
         res.json({ success: true, count: state.athletes.length });
     } catch (err) {
-        res.status(500).json({ error: 'Failed to process Excel file.' });
+        console.error('Upload Error:', err);
+        res.status(500).json({ success: false, message: 'Error processing file' });
     }
 });
 
 // Socket.IO Communication
 io.on('connection', (socket) => {
-    console.log('A user connected');
+    console.log('A user connected:', socket.id);
 
-    // Send current state immediately upon connection
+    // Send the current state immediately upon initial connection
     socket.emit('stateUpdate', state);
 
-    // Organizer Login
+    // Organizer/Scorer Login
     socket.on('organizerLogin', (passcode) => {
         if (passcode === ORGANIZER_PASSWORD) {
             socket.emit('loginResult', { success: true });
@@ -66,39 +67,48 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Organizer selects active athlete
+    // Set Active Athlete
     socket.on('setActiveAthlete', (index) => {
         state.activeAthleteIndex = index;
         io.emit('stateUpdate', state);
     });
 
-    // Organizer logs an attempt distance
-    socket.on('recordAttempt', ({ athleteIndex, attemptNum, distance }) => {
-        const athlete = state.athletes[athleteIndex];
-        if (athlete) {
-            const distNum = parseFloat(distance) || 0;
-            athlete.attempts[attemptNum] = distNum;
-            // Update furthest/best score
-            athlete.bestScore = Math.max(...athlete.attempts.filter(a => a !== null));
+    // Record Attempt Score
+    socket.on('recordAttempt', (data) => {
+        const { athleteIndex, attemptNum, distance } = data;
+        if (state.athletes[athleteIndex]) {
+            state.athletes[athleteIndex].attempts[attemptNum] = distance;
+            
+            // Recalculate best score using valid numeric attempts
+            const validAttempts = state.athletes[athleteIndex].attempts.filter(a => a !== null && !isNaN(a));
+            if (validAttempts.length > 0) {
+                state.athletes[athleteIndex].bestScore = Math.max(...validAttempts);
+            }
+            
             io.emit('stateUpdate', state);
         }
     });
 
-    // Visitor submits a guess
-    socket.on('submitGuess', ({ visitorName, guess }) => {
-        if (state.activeAthleteIndex === null) return;
+    // Submit Visitor/Spectator Guess
+    socket.on('submitGuess', (data) => {
+        const { visitorName, guess } = data;
+        if (state.activeAthleteIndex !== null) {
+            const key = `${socket.id}_${state.activeAthleteIndex}`;
+            state.guesses[key] = {
+                visitorName,
+                guess: parseFloat(guess),
+                athleteIndex: state.activeAthleteIndex
+            };
+            io.emit('stateUpdate', state);
+        }
+    });
 
-        state.guesses[socket.id] = {
-            visitorName,
-            athleteIndex: state.activeAthleteIndex,
-            guess: parseFloat(guess)
-        };
-        
-        io.emit('stateUpdate', state);
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
     });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
