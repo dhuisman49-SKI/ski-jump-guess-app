@@ -247,6 +247,127 @@
         document.getElementById('guess-status').innerText = "Guess submitted successfully!";
     }
 
+    <script>
+    const socket = io();
+    let currentState = {};
+    let isOrganizerLoggedIn = false;
+
+    // Receive Real-Time Updates
+    socket.on('stateUpdate', (state) => {
+        currentState = state;
+        renderVisitorView();
+        if (isOrganizerLoggedIn) {
+            renderOrganizerDashboard();
+        }
+    });
+
+    socket.on('loginResult', (res) => {
+        if (res.success) {
+            isOrganizerLoggedIn = true;
+            document.getElementById('org-login-section').style.display = 'none';
+            document.getElementById('org-dashboard').style.display = 'block';
+            renderOrganizerDashboard();
+        } else {
+            alert(res.message);
+        }
+    });
+
+    // Tab Switcher
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+        
+        if (tab === 'visitor') {
+            document.getElementById('visitor-view').classList.add('active');
+            event.target.classList.add('active');
+        } else {
+            document.getElementById('organizer-view').classList.add('active');
+            event.target.classList.add('active');
+        }
+    }
+
+    // --- ORGANIZER ACTIONS ---
+    function loginOrganizer() {
+        const pass = document.getElementById('org-passcode').value;
+        socket.emit('organizerLogin', pass);
+    }
+
+    function uploadExcel() {
+        const fileInput = document.getElementById('excel-file');
+        if (!fileInput.files[0]) return alert('Please select a file');
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        fetch('/api/upload', { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) alert('Roster uploaded successfully!');
+                else alert('Upload failed');
+            });
+    }
+
+    function selectAthlete(index) {
+        socket.emit('setActiveAthlete', index);
+    }
+
+    function saveScore(attemptNum) {
+        const val = document.getElementById(`score-${attemptNum}`).value;
+        if (val === '') return alert('Enter a value');
+        socket.emit('recordAttempt', {
+            athleteIndex: currentState.activeAthleteIndex,
+            attemptNum: attemptNum,
+            distance: val
+        });
+    }
+
+    function renderOrganizerDashboard() {
+        const listDiv = document.getElementById('athlete-list');
+        listDiv.innerHTML = '';
+        
+        currentState.athletes.forEach((athlete, i) => {
+            const isSelected = currentState.activeAthleteIndex === i;
+            const item = document.createElement('div');
+            item.className = 'athlete-item';
+            item.style.backgroundColor = isSelected ? '#d1ecf1' : 'white';
+            item.innerHTML = `
+                <span><strong>${athlete.name}</strong> (Avg: ${athlete.avgScore})</span>
+                <button style="width: auto;" onclick="selectAthlete(${i})">
+                    ${isSelected ? 'Currently Selected' : 'Set Active'}
+                </button>
+            `;
+            listDiv.appendChild(item);
+        });
+
+        // Score Section setup
+        const scoreCard = document.getElementById('org-score-card');
+        if (currentState.activeAthleteIndex !== null) {
+            scoreCard.style.display = 'block';
+            const athlete = currentState.athletes[currentState.activeAthleteIndex];
+            document.getElementById('org-active-name').innerText = athlete.name;
+            document.getElementById('org-best-score').innerText = athlete.bestScore;
+
+            // Populate attempt inputs if already saved
+            for (let i = 0; i < 3; i++) {
+                if (athlete.attempts[i] !== null) {
+                    document.getElementById(`score-${i}`).value = athlete.attempts[i];
+                }
+            }
+        } else {
+            scoreCard.style.display = 'none';
+        }
+    }
+
+    // --- VISITOR ACTIONS ---
+    function submitGuess() {
+        const name = document.getElementById('v-name').value;
+        const guess = document.getElementById('v-guess').value;
+        if (!name || !guess) return alert('Fill out both fields');
+
+        socket.emit('submitGuess', { visitorName: name, guess: guess });
+        document.getElementById('guess-status').innerText = "Guess submitted successfully!";
+    }
+
     function renderVisitorView() {
         const noActive = document.getElementById('visitor-no-active');
         const activeCard = document.getElementById('visitor-active-card');
@@ -272,14 +393,14 @@
             document.getElementById(`v-att-${i}`).innerText = (val !== null) ? `${val} ft/m` : 'Pending';
         }
 
-        // Check if 3rd distance is recorded -> Calculate Winner
-        const isFinished = athlete.attempts.every(att => att !== null);
-        if (isFinished) {
+        // Check if AT LEAST ONE attempt has been recorded
+        const hasAnyAttempt = athlete.attempts.some(att => att !== null);
+        if (hasAnyAttempt) {
             resultsBox.style.display = 'block';
             document.getElementById('res-athlete-name').innerText = athlete.name;
             document.getElementById('res-furthest').innerText = athlete.bestScore;
 
-            // Compute closest guesses
+            // Compute closest guesses based on current best score
             calculateWinners(currentState.activeAthleteIndex, athlete.bestScore);
         } else {
             resultsBox.style.display = 'none';
@@ -298,7 +419,7 @@
             return;
         }
 
-        // Calculate absolute difference to actual furthest score
+        // Calculate absolute difference to current furthest score
         let minDiff = Infinity;
         relevantGuesses.forEach(g => {
             const diff = Math.abs(g.guess - bestScore);
@@ -310,10 +431,8 @@
 
         winners.forEach(w => {
             const p = document.createElement('p');
-            p.innerHTML = `🥇 <strong>${w.visitorName}</strong> (Guessed: ${w.guess} — Difference: Off by ${minDiff.toFixed(1)})`;
+            p.innerHTML = `🥇 <strong>${w.visitorName}</strong> (Guessed: ${w.guess} — Currently off by ${minDiff.toFixed(1)})`;
             winnersList.appendChild(p);
         });
     }
 </script>
-</body>
-</html>
