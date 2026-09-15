@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Water Ski Jump Guessing Game</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌊</text></svg>">
     <script src="/socket.io/socket.io.js"></script>
     <style>
-        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
         body { margin: 0; padding: 20px; background: #f0f4f8; color: #333; }
         .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h1, h2, h3 { color: #0056b3; }
@@ -15,7 +16,7 @@
         .view-section { display: none; margin-top: 20px; }
         .view-section.active { display: block; }
         .card { background: #e9f2ff; padding: 15px; border-radius: 6px; margin-bottom: 15px; }
-        input, select, button { padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; width: 100%; }
+        input, select, button { padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; width: 100%; font-size: 16px; }
         button { background: #28a745; color: white; border: none; cursor: pointer; font-weight: bold; }
         button:hover { background: #218838; }
         .athlete-list { max-height: 200px; overflow-y: auto; background: #fff; border: 1px solid #ccc; }
@@ -27,11 +28,11 @@
 <body>
 
 <div class="container">
-    <h1>⛷️ Water Ski Jump Guesser</h1>
+    <h1><img src="https://img.icons8.com/color/48/water-skiing.png" alt="Skiing" style="vertical-align: middle; height: 36px; margin-right: 8px;">Water Ski Jump Guesser</h1>
     
-   <div>
-        <button class="tab-btn active" onclick="switchTab('spectator', event)">Spectator View</button>
-        <button class="tab-btn" onclick="switchTab('organizer', event)">Scorer/Announcing View</button>
+    <div>
+        <button class="tab-btn active" id="btn-spectator" onclick="switchTab('spectator')">Spectator View</button>
+        <button class="tab-btn" id="btn-organizer" onclick="switchTab('organizer')">Scorer/Announcing View</button>
     </div>
 
     <!-- SPECTATOR VIEW -->
@@ -44,14 +45,14 @@
 
         <div id="spectator-active-card" class="card" style="display:none;">
             <h3>Currently on the Water: <span id="s-athlete-name" style="color:#d9534f;">-</span></h3>
-           <p><strong>Average Score going in:</strong> <span id="s-athlete-avg">0</span> ft</p>
+            <p><strong>Average Score going in:</strong> <span id="s-athlete-avg">0</span> ft</p>
             
             <div id="guess-form-section">
-                <h4>Submit Your Distance Guess</h4>
+                <h4>Submit Your Guess</h4>
                 <input type="text" id="s-name" placeholder="Your Name">
                 <input type="number" id="s-guess" placeholder="Your Jump Distance Guess">
                 <button onclick="submitGuess()">Submit Guess</button>
-                <p id="guess-status" style="color: green;"></p>
+                <p id="guess-status" style="color: green; font-weight: bold;"></p>
             </div>
             
             <hr>
@@ -65,10 +66,9 @@
 
         <!-- WINNERS RESULTS -->
         <div id="spectator-results" class="winner-box" style="display:none;">
-            <h3>🏆 Distance Captured! Results for <span id="res-athlete-name"></span></h3>
+            <h3>🏆 Round Complete! Results for <span id="res-athlete-name"></span></h3>
             <p><strong>Final Recorded Distance (Furthest Jump):</strong> <span id="res-furthest"></span> ft</p>
             <hr>
-            <h4>Top Guesser(s):</h4>
             <div id="winners-list"></div>
         </div>
     </div>
@@ -77,16 +77,13 @@
     <div id="organizer-view" class="view-section">
         <h2>Scorer/Announcing Panel</h2>
         
-        <!-- Login Form -->
         <div id="org-login-section">
             <p>Enter Scorer/Announcing Passcode:</p>
             <input type="password" id="org-passcode" placeholder="Passcode">
             <button onclick="loginOrganizer()">Login</button>
         </div>
 
-        <!-- Admin Dashboard -->
         <div id="org-dashboard" style="display:none;">
-            <!-- Upload Excel -->
             <div class="card">
                 <h3>1. Upload Excel Roster</h3>
                 <p><small>Excel file should have columns named <strong>Name</strong> and <strong>AverageScore</strong></small></p>
@@ -94,16 +91,14 @@
                 <button onclick="uploadExcel()">Upload Excel</button>
             </div>
 
-            <!-- Select Active Athlete -->
             <div class="card">
                 <h3>2. Select Athlete On the Water</h3>
                 <div id="athlete-list" class="athlete-list"></div>
             </div>
 
-            <!-- Score Input -->
             <div class="card" id="org-score-card" style="display:none;">
                 <h3>3. Record Scores for <span id="org-active-name"></span></h3>
-                <p>Furthest Jump recorded: <strong id="org-best-score">0</strong></p>
+                <p>Furthest Jump recorded: <strong id="org-best-score">0</strong> ft</p>
                 <div class="attempts-grid">
                     <div>
                         <label>Attempt 1</label>
@@ -131,8 +126,7 @@
     let currentState = {};
     let isOrganizerLoggedIn = false;
 
-    // Receive Real-Time Updates
-    socket.on('stateUpdate', (state) => {
+    socket.on('stateUpdate', function(state) {
         currentState = state;
         renderSpectatorView();
         if (isOrganizerLoggedIn) {
@@ -140,7 +134,7 @@
         }
     });
 
-    socket.on('loginResult', (res) => {
+    socket.on('loginResult', function(res) {
         if (res.success) {
             isOrganizerLoggedIn = true;
             document.getElementById('org-login-section').style.display = 'none';
@@ -151,23 +145,21 @@
         }
     });
 
-    // Tab Switcher (Firefox-safe)
-    function switchTab(tab, btnEvent) {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-        
+    function switchTab(tab) {
+        document.getElementById('spectator-view').classList.remove('active');
+        document.getElementById('organizer-view').classList.remove('active');
+        document.getElementById('btn-spectator').classList.remove('active');
+        document.getElementById('btn-organizer').classList.remove('active');
+
         if (tab === 'spectator') {
             document.getElementById('spectator-view').classList.add('active');
+            document.getElementById('btn-spectator').classList.add('active');
         } else {
             document.getElementById('organizer-view').classList.add('active');
-        }
-
-        if (btnEvent && btnEvent.target) {
-            btnEvent.target.classList.add('active');
+            document.getElementById('btn-organizer').classList.add('active');
         }
     }
 
-    // --- SCORER/ANNOUNCING ACTIONS ---
     function loginOrganizer() {
         const pass = document.getElementById('org-passcode').value;
         socket.emit('organizerLogin', pass);
@@ -238,7 +230,7 @@
             for (let i = 0; i < 3; i++) {
                 const input = document.getElementById("score-" + i);
                 if (input && document.activeElement !== input) {
-                    input.value = (athlete.attempts[i] !== null) ? athlete.attempts[i] : '';
+                    input.value = (athlete.attempts[i] !== null && athlete.attempts[i] !== undefined) ? athlete.attempts[i] : '';
                 }
             }
         } else {
@@ -246,7 +238,6 @@
         }
     }
 
-    // --- SPECTATOR ACTIONS ---
     function submitGuess() {
         const name = document.getElementById('s-name').value;
         const guess = document.getElementById('s-guess').value;
@@ -277,10 +268,10 @@
 
         for (let i = 0; i < 3; i++) {
             const val = athlete.attempts[i];
-            document.getElementById("s-att-" + i).innerText = (val !== null) ? `${val} ft` : 'Pending';
+            document.getElementById("s-att-" + i).innerText = (val !== null && val !== undefined) ? (val + " ft") : 'Pending';
         }
 
-        const hasAnyAttempt = athlete.attempts.some(att => att !== null);
+        const hasAnyAttempt = athlete.attempts.some(att => att !== null && att !== undefined);
         if (hasAnyAttempt) {
             resultsBox.style.display = 'block';
             document.getElementById('res-athlete-name').innerText = athlete.name;
@@ -295,7 +286,6 @@
     function calculateWinners(athleteIndex, bestScore) {
         if (!currentState.guesses) return;
 
-        // 1. Filter guesses for the current active athlete
         const relevantGuesses = Object.values(currentState.guesses)
             .filter(g => g.athleteIndex === athleteIndex);
 
@@ -307,19 +297,14 @@
             return;
         }
 
-        // 2. Calculate error margin for each guess
-        const scoredGuesses = relevantGuesses.map(g => {
-            return {
-                name: g.visitorName,
-                guess: g.guess,
-                diff: Math.abs(g.guess - bestScore)
-            };
-        });
+        const scoredGuesses = relevantGuesses.map(g => ({
+            name: g.visitorName,
+            guess: g.guess,
+            diff: Math.abs(g.guess - bestScore)
+        }));
 
-        // 3. Sort by closest guess (smallest difference first)
         scoredGuesses.sort((a, b) => a.diff - b.diff);
 
-        // 4. Render Top 3 Leaders
         const top3Section = document.createElement('div');
         top3Section.innerHTML = '<h4>Leaderboard (Top 3):</h4>';
         
@@ -334,7 +319,6 @@
         });
         winnersList.appendChild(top3Section);
 
-        // 5. Render All Other Participants (if any)
         const remaining = scoredGuesses.slice(3);
         if (remaining.length > 0) {
             const othersSection = document.createElement('div');
@@ -350,3 +334,6 @@
             winnersList.appendChild(othersSection);
         }
     }
+</script>
+</body>
+</html>
