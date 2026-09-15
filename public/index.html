@@ -314,7 +314,7 @@
 
         winners.forEach(w => {
             const p = document.createElement('p');
-            p.innerHTML = `🥇 <strong>${w.visitorName}</strong> (Guessed: ${w.guess} — Currently off by ${minDiff.toFixed(1)})`;
+            p.innerHTML = `🥇 <strong>${w.visitorName}</strong> (Guessed: ${w.guess} ft — Currently off by ${minDiff.toFixed(1)} ft)`;
             winnersList.appendChild(p);
         });
     }
