@@ -187,6 +187,11 @@
     }
 
     function selectAthlete(index) {
+        // Clear score input fields for the organizer
+        for (let i = 0; i < 3; i++) {
+            const input = document.getElementById(`score-${i}`);
+            if (input) input.value = '';
+        }
         socket.emit('setActiveAthlete', index);
     }
 
