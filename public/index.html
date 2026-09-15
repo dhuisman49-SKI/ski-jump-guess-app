@@ -30,26 +30,26 @@
     <h1>⛷️ Water Ski Jump Guesser</h1>
     
     <div>
-        <button class="tab-btn active" onclick="switchTab('visitor')">Visitor View</button>
+        <button class="tab-btn active" onclick="switchTab('spectator')">Spectator View</button>
         <button class="tab-btn" onclick="switchTab('organizer')">Organizer View</button>
     </div>
 
-    <!-- VISITOR VIEW -->
-    <div id="visitor-view" class="view-section active">
-        <h2>Visitor Dashboard</h2>
+    <!-- SPECTATOR VIEW -->
+    <div id="spectator-view" class="view-section active">
+        <h2>Spectator Dashboard</h2>
         
-        <div id="visitor-no-active" class="card">
+        <div id="spectator-no-active" class="card">
             <p>Waiting for the organizer to select an athlete on the water...</p>
         </div>
 
-        <div id="visitor-active-card" class="card" style="display:none;">
-            <h3>Currently on the Water: <span id="v-athlete-name" style="color:#d9534f;">-</span></h3>
-            <p><strong>Average Score going in:</strong> <span id="v-athlete-avg">0</span> ft/m</p>
+        <div id="spectator-active-card" class="card" style="display:none;">
+            <h3>Currently on the Water: <span id="s-athlete-name" style="color:#d9534f;">-</span></h3>
+            <p><strong>Average Score going in:</strong> <span id="s-athlete-avg">0</span> ft/m</p>
             
             <div id="guess-form-section">
                 <h4>Submit Your Guess</h4>
-                <input type="text" id="v-name" placeholder="Your Name">
-                <input type="number" id="v-guess" placeholder="Your Jump Distance Guess">
+                <input type="text" id="s-name" placeholder="Your Name">
+                <input type="number" id="s-guess" placeholder="Your Jump Distance Guess">
                 <button onclick="submitGuess()">Submit Guess</button>
                 <p id="guess-status" style="color: green;"></p>
             </div>
@@ -57,14 +57,14 @@
             <hr>
             <h4>Live Attempts Recorded:</h4>
             <div class="attempts-grid">
-                <div>Attempt 1: <strong id="v-att-0">-</strong></div>
-                <div>Attempt 2: <strong id="v-att-1">-</strong></div>
-                <div>Attempt 3: <strong id="v-att-2">-</strong></div>
+                <div>Attempt 1: <strong id="s-att-0">-</strong></div>
+                <div>Attempt 2: <strong id="s-att-1">-</strong></div>
+                <div>Attempt 3: <strong id="s-att-2">-</strong></div>
             </div>
         </div>
 
         <!-- WINNERS RESULTS -->
-        <div id="visitor-results" class="winner-box" style="display:none;">
+        <div id="spectator-results" class="winner-box" style="display:none;">
             <h3>🏆 Round Complete! Results for <span id="res-athlete-name"></span></h3>
             <p><strong>Final Recorded Distance (Furthest Jump):</strong> <span id="res-furthest"></span> ft/m</p>
             <hr>
@@ -79,7 +79,7 @@
         
         <!-- Login Form -->
         <div id="org-login-section">
-            <p>Enter Passcode to access organizer tools (Default: <code>ask_David_Huisman</code>):</p>
+            <p>Enter Organizer Passcode:</p>
             <input type="password" id="org-passcode" placeholder="Passcode">
             <button onclick="loginOrganizer()">Login</button>
         </div>
@@ -134,7 +134,7 @@
     // Receive Real-Time Updates
     socket.on('stateUpdate', (state) => {
         currentState = state;
-        renderVisitorView();
+        renderSpectatorView();
         if (isOrganizerLoggedIn) {
             renderOrganizerDashboard();
         }
@@ -156,8 +156,8 @@
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
         
-        if (tab === 'visitor') {
-            document.getElementById('visitor-view').classList.add('active');
+        if (tab === 'spectator') {
+            document.getElementById('spectator-view').classList.add('active');
             if (event && event.target) event.target.classList.add('active');
         } else {
             document.getElementById('organizer-view').classList.add('active');
@@ -187,7 +187,6 @@
     }
 
     function selectAthlete(index) {
-        // Clear score input fields for the organizer
         for (let i = 0; i < 3; i++) {
             const input = document.getElementById("score-" + i);
             if (input) input.value = '';
@@ -203,7 +202,7 @@
         socket.emit('recordAttempt', {
             athleteIndex: currentState.activeAthleteIndex,
             attemptNum: attemptNum,
-            distance: parseFloat(val) // Explicitly send as a number
+            distance: parseFloat(val)
         });
     }
 
@@ -227,7 +226,6 @@
             listDiv.appendChild(item);
         });
 
-        // Score Section setup
         const scoreCard = document.getElementById('org-score-card');
         if (currentState.activeAthleteIndex !== null && currentState.athletes[currentState.activeAthleteIndex]) {
             scoreCard.style.display = 'block';
@@ -235,7 +233,6 @@
             document.getElementById('org-active-name').innerText = athlete.name;
             document.getElementById('org-best-score').innerText = athlete.bestScore;
 
-            // Populate attempt inputs if already saved, otherwise keep cleared
             for (let i = 0; i < 3; i++) {
                 const input = document.getElementById("score-" + i);
                 if (input && document.activeElement !== input) {
@@ -247,20 +244,20 @@
         }
     }
 
-    // --- VISITOR ACTIONS ---
+    // --- SPECTATOR ACTIONS ---
     function submitGuess() {
-        const name = document.getElementById('v-name').value;
-        const guess = document.getElementById('v-guess').value;
+        const name = document.getElementById('s-name').value;
+        const guess = document.getElementById('s-guess').value;
         if (!name || !guess) return alert('Fill out both fields');
 
-        socket.emit('submitGuess', { visitorName: name, guess: guess });
+        socket.emit('submitGuess', { visitorName: name, guess: parseFloat(guess) });
         document.getElementById('guess-status').innerText = "Guess submitted successfully!";
     }
 
-    function renderVisitorView() {
-        const noActive = document.getElementById('visitor-no-active');
-        const activeCard = document.getElementById('visitor-active-card');
-        const resultsBox = document.getElementById('visitor-results');
+    function renderSpectatorView() {
+        const noActive = document.getElementById('spectator-no-active');
+        const activeCard = document.getElementById('spectator-active-card');
+        const resultsBox = document.getElementById('spectator-results');
 
         if (currentState.activeAthleteIndex === null || !currentState.athletes || !currentState.athletes[currentState.activeAthleteIndex]) {
             noActive.style.display = 'block';
@@ -273,23 +270,20 @@
         activeCard.style.display = 'block';
 
         const athlete = currentState.athletes[currentState.activeAthleteIndex];
-        document.getElementById('v-athlete-name').innerText = athlete.name;
-        document.getElementById('v-athlete-avg').innerText = athlete.avgScore;
+        document.getElementById('s-athlete-name').innerText = athlete.name;
+        document.getElementById('s-athlete-avg').innerText = athlete.avgScore;
 
-        // Display attempt scores
         for (let i = 0; i < 3; i++) {
             const val = athlete.attempts[i];
-            document.getElementById("v-att-" + i).innerText = (val !== null) ? `${val} ft/m` : 'Pending';
+            document.getElementById("s-att-" + i).innerText = (val !== null) ? `${val} ft/m` : 'Pending';
         }
 
-        // Check if AT LEAST ONE attempt has been recorded
         const hasAnyAttempt = athlete.attempts.some(att => att !== null);
         if (hasAnyAttempt) {
             resultsBox.style.display = 'block';
             document.getElementById('res-athlete-name').innerText = athlete.name;
             document.getElementById('res-furthest').innerText = athlete.bestScore;
 
-            // Compute closest guesses based on current best score
             calculateWinners(currentState.activeAthleteIndex, athlete.bestScore);
         } else {
             resultsBox.style.display = 'none';
@@ -310,14 +304,12 @@
             return;
         }
 
-        // Calculate absolute difference to current furthest score
         let minDiff = Infinity;
         relevantGuesses.forEach(g => {
             const diff = Math.abs(g.guess - bestScore);
             if (diff < minDiff) minDiff = diff;
         });
 
-        // Filter all visitors who matched the minimum difference
         const winners = relevantGuesses.filter(g => Math.abs(g.guess - bestScore) === minDiff);
 
         winners.forEach(w => {
@@ -327,3 +319,5 @@
         });
     }
 </script>
+</body>
+</html>
