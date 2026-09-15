@@ -293,6 +293,7 @@
     function calculateWinners(athleteIndex, bestScore) {
         if (!currentState.guesses) return;
 
+        // 1. Filter guesses for the current active athlete
         const relevantGuesses = Object.values(currentState.guesses)
             .filter(g => g.athleteIndex === athleteIndex);
 
@@ -304,20 +305,46 @@
             return;
         }
 
-        let minDiff = Infinity;
-        relevantGuesses.forEach(g => {
-            const diff = Math.abs(g.guess - bestScore);
-            if (diff < minDiff) minDiff = diff;
+        // 2. Calculate error margin for each guess
+        const scoredGuesses = relevantGuesses.map(g => {
+            return {
+                name: g.visitorName,
+                guess: g.guess,
+                diff: Math.abs(g.guess - bestScore)
+            };
         });
 
-        const winners = relevantGuesses.filter(g => Math.abs(g.guess - bestScore) === minDiff);
+        // 3. Sort by closest guess (smallest difference first)
+        scoredGuesses.sort((a, b) => a.diff - b.diff);
 
-        winners.forEach(w => {
+        // 4. Render Top 3 Leaders
+        const top3Section = document.createElement('div');
+        top3Section.innerHTML = '<h4>Leaderboard (Top 3):</h4>';
+        
+        const medals = ['🥇 1st Place', '🥈 2nd Place', '🥉 3rd Place'];
+        const top3 = scoredGuesses.slice(0, 3);
+
+        top3.forEach((g, idx) => {
             const p = document.createElement('p');
-            p.innerHTML = `🥇 <strong>${w.visitorName}</strong> (Guessed: ${w.guess} ft — Currently off by ${minDiff.toFixed(1)} ft)`;
-            winnersList.appendChild(p);
+            p.style.fontWeight = 'bold';
+            p.innerHTML = `${medals[idx]}: ${g.name} — Guessed: ${g.guess} ft (Off by ${g.diff.toFixed(1)} ft)`;
+            top3Section.appendChild(p);
         });
+        winnersList.appendChild(top3Section);
+
+        // 5. Render All Other Participants (if any)
+        const remaining = scoredGuesses.slice(3);
+        if (remaining.length > 0) {
+            const othersSection = document.createElement('div');
+            othersSection.style.marginTop = '15px';
+            othersSection.innerHTML = '<h4>All Other Guesses:</h4>';
+
+            remaining.forEach((g, idx) => {
+                const p = document.createElement('p');
+                p.style.margin = '4px 0';
+                p.innerHTML = `#${idx + 4}. ${g.name} — Guessed: ${g.guess} ft (Off by ${g.diff.toFixed(1)} ft)`;
+                othersSection.appendChild(p);
+            });
+            winnersList.appendChild(othersSection);
+        }
     }
-</script>
-</body>
-</html>
