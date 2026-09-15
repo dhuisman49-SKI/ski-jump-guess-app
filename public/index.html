@@ -31,7 +31,7 @@
     
     <div>
         <button class="tab-btn active" onclick="switchTab('spectator')">Spectator View</button>
-        <button class="tab-btn" onclick="switchTab('organizer')">Organizer View</button>
+        <button class="tab-btn" onclick="switchTab('organizer')">Scorer/Announcing View</button>
     </div>
 
     <!-- SPECTATOR VIEW -->
@@ -39,7 +39,7 @@
         <h2>Spectator Dashboard</h2>
         
         <div id="spectator-no-active" class="card">
-            <p>Waiting for the organizer to select an athlete on the water...</p>
+            <p>Waiting for Scorer/Announcing to select an athlete on the water...</p>
         </div>
 
         <div id="spectator-active-card" class="card" style="display:none;">
@@ -73,13 +73,13 @@
         </div>
     </div>
 
-    <!-- ORGANIZER VIEW -->
+    <!-- SCORER / ANNOUNCING VIEW -->
     <div id="organizer-view" class="view-section">
-        <h2>Organizer Panel</h2>
+        <h2>Scorer/Announcing Panel</h2>
         
         <!-- Login Form -->
         <div id="org-login-section">
-            <p>Enter Organizer Passcode:</p>
+            <p>Enter Scorer/Announcing Passcode:</p>
             <input type="password" id="org-passcode" placeholder="Passcode">
             <button onclick="loginOrganizer()">Login</button>
         </div>
@@ -165,7 +165,7 @@
         }
     }
 
-    // --- ORGANIZER ACTIONS ---
+    // --- SCORER/ANNOUNCING ACTIONS ---
     function loginOrganizer() {
         const pass = document.getElementById('org-passcode').value;
         socket.emit('organizerLogin', pass);
