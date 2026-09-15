@@ -231,10 +231,11 @@
             document.getElementById('org-active-name').innerText = athlete.name;
             document.getElementById('org-best-score').innerText = athlete.bestScore;
 
-            // Populate attempt inputs if already saved
+// Populate attempt inputs if already saved, otherwise clear them
             for (let i = 0; i < 3; i++) {
-                if (athlete.attempts[i] !== null) {
-                    document.getElementById(`score-${i}`).value = athlete.attempts[i];
+                const input = document.getElementById(`score-${i}`);
+                if (input) {
+                    input.value = (athlete.attempts[i] !== null) ? athlete.attempts[i] : '';
                 }
             }
         } else {
