@@ -52,8 +52,13 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
 // Socket.IO Communication
 io.on('connection', (socket) => {
-    // Send initial state on connect
+    console.log('A user connected');
+
+    // ADD THIS LINE: Send current state immediately upon connection
     socket.emit('stateUpdate', state);
+
+    // ... rest of socket event handlers ...
+});
 
     // Organizer Login
     socket.on('organizerLogin', (passcode) => {
