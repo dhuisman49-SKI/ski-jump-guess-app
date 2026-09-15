@@ -57,7 +57,7 @@ io.on('connection', (socket) => {
 
     // Organizer Login
     socket.on('organizerLogin', (passcode) => {
-        if (passcode === 'admin123') { // Simple organizer password
+        if (passcode === 'sk1jump2026!') { // Simple organizer password
             socket.emit('loginResult', { success: true });
         } else {
             socket.emit('loginResult', { success: false, message: 'Invalid Passcode' });
