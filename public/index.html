@@ -151,17 +151,19 @@
         }
     });
 
-    // Tab Switcher
-    function switchTab(tab) {
+    // Tab Switcher (Firefox-safe)
+    function switchTab(tab, btnEvent) {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
         
         if (tab === 'spectator') {
             document.getElementById('spectator-view').classList.add('active');
-            if (event && event.target) event.target.classList.add('active');
         } else {
             document.getElementById('organizer-view').classList.add('active');
-            if (event && event.target) event.target.classList.add('active');
+        }
+
+        if (btnEvent && btnEvent.target) {
+            btnEvent.target.classList.add('active');
         }
     }
 
