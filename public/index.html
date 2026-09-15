@@ -275,7 +275,7 @@
 
         for (let i = 0; i < 3; i++) {
             const val = athlete.attempts[i];
-            document.getElementById("s-att-" + i).innerText = (val !== null) ? `${val} ft/m` : 'Pending';
+            document.getElementById("s-att-" + i).innerText = (val !== null) ? `${val} ft` : 'Pending';
         }
 
         const hasAnyAttempt = athlete.attempts.some(att => att !== null);
