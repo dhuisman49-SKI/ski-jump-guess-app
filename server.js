@@ -24,6 +24,8 @@ let state = {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
 // API: Excel Roster Upload
 app.post('/api/upload', upload.single('file'), (req, res) => {
     try {
