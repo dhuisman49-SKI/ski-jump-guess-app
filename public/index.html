@@ -199,10 +199,11 @@
         const input = document.getElementById("score-" + attemptNum);
         const val = input ? input.value : '';
         if (val === '') return alert('Enter a value');
+        
         socket.emit('recordAttempt', {
             athleteIndex: currentState.activeAthleteIndex,
             attemptNum: attemptNum,
-            distance: val
+            distance: parseFloat(val) // Explicitly send as a number
         });
     }
 
