@@ -16,7 +16,6 @@ const ORGANIZER_PASSWORD = process.env.ORGANIZER_PASSWORD || 'skijump2026!';
 // Global In-Memory Application State (Multi-Tournament)
 let tournaments = {};
 
-// Helper function to initialize or retrieve a tournament
 function getOrCreateTournament(name) {
     if (!tournaments[name]) {
         tournaments[name] = {
@@ -32,10 +31,7 @@ function getOrCreateTournament(name) {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// Serve static frontend files from 'public' folder
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json());
-
+// Quiet Favicon 404 logs
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // API: Excel Roster Upload
@@ -43,22 +39,25 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
+        const tournamentName = req.body.tournamentName || 'Default Event';
+        const tourney = getOrCreateTournament(tournamentName);
+
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
         const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-        state.athletes = sheetData.map(row => ({
+        tourney.athletes = sheetData.map(row => ({
             name: row.Name || row.name || 'Unknown Athlete',
             avgScore: parseFloat(row.AverageScore || row.avgScore || row.Average || 0),
             attempts: [null, null, null],
             bestScore: 0
         }));
 
-        state.activeAthleteIndex = null;
-        state.guesses = {};
+        tourney.activeAthleteIndex = null;
+        tourney.guesses = {};
 
-        io.emit('stateUpdate', state);
-        res.json({ success: true, count: state.athletes.length });
+        io.to(tournamentName).emit('stateUpdate', tourney);
+        res.json({ success: true, count: tourney.athletes.length });
     } catch (err) {
         console.error('Upload Error:', err);
         res.status(500).json({ success: false, message: 'Error processing file' });
@@ -69,36 +68,21 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
 
-    // Send the current state immediately upon initial connection
-    socket.emit('stateUpdate', state);
-
-    // Organizer/Scorer Login
-    socket.on('organizerLogin', (passcode) => {
-        if (passcode === ORGANIZER_PASSWORD) {
-            socket.emit('loginResult', { success: true });
-        } else {
-            socket.emit('loginResult', { success: false, message: 'Invalid Passcode' });
-        }
-    });// Socket.IO Communication
-io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id);
-
-    // 1. Send list of active tournaments to newly connected spectator
+    // List active tournaments for spectators
     socket.on('getTournamentList', () => {
         socket.emit('tournamentList', Object.keys(tournaments));
     });
 
-    // 2. Assign user's socket connection to a specific tournament room
+    // Join a tournament room
     socket.on('joinTournament', (tournamentName) => {
         socket.join(tournamentName);
-        socket.currentTournament = tournamentName; // Store room on socket object
+        socket.currentTournament = tournamentName;
         
         const tourney = getOrCreateTournament(tournamentName);
-        // Send state for ONLY this tournament to the joining client
         socket.emit('stateUpdate', tourney);
     });
 
-    // 3. Organizer/Scorer Login
+    // Organizer Login
     socket.on('organizerLogin', (passcode) => {
         if (passcode === ORGANIZER_PASSWORD) {
             socket.emit('loginResult', { success: true });
@@ -107,13 +91,14 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ... rest of socket event handlers (setActiveAthlete, recordAttempt, submitGuess) ...
-});
-
-    // Set Active Athlete
+    // Set Active Athlete (Room Scoped)
     socket.on('setActiveAthlete', (index) => {
-        state.activeAthleteIndex = index;
-        io.emit('stateUpdate', state);
+        const room = socket.currentTournament;
+        if (!room || !tournaments[room]) return;
+
+        const tourney = tournaments[room];
+        tourney.activeAthleteIndex = index;
+        io.to(room).emit('stateUpdate', tourney);
     });
 
     // Record Attempt Score (Room Scoped)
@@ -132,22 +117,26 @@ io.on('connection', (socket) => {
                 tourney.athletes[athleteIndex].bestScore = Math.max(...valid);
             }
             
-            // Broadcasts ONLY to users in this specific tournament room
             io.to(room).emit('stateUpdate', tourney);
         }
     });
 
-    // Submit Visitor/Spectator Guess
+    // Submit Visitor Guess (Room Scoped)
     socket.on('submitGuess', (data) => {
+        const room = socket.currentTournament;
+        if (!room || !tournaments[room]) return;
+
+        const tourney = tournaments[room];
         const { visitorName, guess } = data;
-        if (state.activeAthleteIndex !== null) {
-            const key = `${socket.id}_${state.activeAthleteIndex}`;
-            state.guesses[key] = {
+
+        if (tourney.activeAthleteIndex !== null) {
+            const key = `${socket.id}_${tourney.activeAthleteIndex}`;
+            tourney.guesses[key] = {
                 visitorName,
                 guess: parseFloat(guess),
-                athleteIndex: state.activeAthleteIndex
+                athleteIndex: tourney.activeAthleteIndex
             };
-            io.emit('stateUpdate', state);
+            io.to(room).emit('stateUpdate', tourney);
         }
     });
 
