@@ -13,12 +13,24 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 const ORGANIZER_PASSWORD = process.env.ORGANIZER_PASSWORD || 'skijump2026!';
 
-// Global In-Memory Application State
-let state = {
-    athletes: [],
-    activeAthleteIndex: null,
-    guesses: {}
-};
+// Global In-Memory Application State (Multi-Tournament)
+let tournaments = {};
+
+// Helper function to initialize or retrieve a tournament
+function getOrCreateTournament(name) {
+    if (!tournaments[name]) {
+        tournaments[name] = {
+            athletes: [],
+            activeAthleteIndex: null,
+            guesses: {}
+        };
+    }
+    return tournaments[name];
+}
+
+// Serve static frontend files from 'public' folder
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
 
 // Serve static frontend files from 'public' folder
 app.use(express.static(path.join(__dirname, 'public')));
