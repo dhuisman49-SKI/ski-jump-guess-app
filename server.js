@@ -11,7 +11,7 @@ const io = new Server(server);
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-const ORGANIZER_PASSWORD = process.env.ORGANIZER_PASSWORD || 'skijump2026!';
+const ORGANIZER_PASSWORD = process.env.ORGANIZER_PASSWORD || 'sk1jump2026!';
 
 // Global In-Memory Application State (Multi-Tournament)
 let tournaments = {};
