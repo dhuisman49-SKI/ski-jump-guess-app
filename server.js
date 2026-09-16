@@ -79,7 +79,36 @@ io.on('connection', (socket) => {
         } else {
             socket.emit('loginResult', { success: false, message: 'Invalid Passcode' });
         }
+    });// Socket.IO Communication
+io.on('connection', (socket) => {
+    console.log('A user connected:', socket.id);
+
+    // 1. Send list of active tournaments to newly connected spectator
+    socket.on('getTournamentList', () => {
+        socket.emit('tournamentList', Object.keys(tournaments));
     });
+
+    // 2. Assign user's socket connection to a specific tournament room
+    socket.on('joinTournament', (tournamentName) => {
+        socket.join(tournamentName);
+        socket.currentTournament = tournamentName; // Store room on socket object
+        
+        const tourney = getOrCreateTournament(tournamentName);
+        // Send state for ONLY this tournament to the joining client
+        socket.emit('stateUpdate', tourney);
+    });
+
+    // 3. Organizer/Scorer Login
+    socket.on('organizerLogin', (passcode) => {
+        if (passcode === ORGANIZER_PASSWORD) {
+            socket.emit('loginResult', { success: true });
+        } else {
+            socket.emit('loginResult', { success: false, message: 'Invalid Passcode' });
+        }
+    });
+
+    // ... rest of socket event handlers (setActiveAthlete, recordAttempt, submitGuess) ...
+});
 
     // Set Active Athlete
     socket.on('setActiveAthlete', (index) => {
