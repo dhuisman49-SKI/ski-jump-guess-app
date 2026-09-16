@@ -28,7 +28,7 @@
 <body>
 
 <div class="container">
-    <h1><img src="/Jumper.jpg" alt="Water Ski Jumper" style="vertical-align: middle; height: 48px; width: auto; border-radius: 4px; margin-right: 10px;">Water Ski Jump Guesser</h1>
+    <h1><img src="/Jumper.jpg" alt="Water Ski Jumper" style="vertical-align: middle; height: 48px; width: auto; border-radius: 4px; margin-right: 10px;" onerror="this.style.display='none'">Water Ski Jump Guesser</h1>
     
     <div>
         <button class="tab-btn active" id="btn-spectator" onclick="switchTab('spectator')">Spectator View</button>
@@ -39,37 +39,49 @@
     <div id="spectator-view" class="view-section active">
         <h2>Spectator Dashboard</h2>
         
-        <div id="spectator-no-active" class="card">
-            <p>Waiting for Scorer/Announcing to select an athlete on the water...</p>
+        <!-- Tournament Selection Section -->
+        <div id="spectator-tourney-select" class="card">
+            <h3>Select Your Tournament</h3>
+            <p>Choose an active event to view scores and place guesses:</p>
+            <select id="tourney-dropdown">
+                <option value="">-- Loading Active Events --</option>
+            </select>
+            <button onclick="joinSelectedTournament()">Join Event</button>
         </div>
 
-        <div id="spectator-active-card" class="card" style="display:none;">
-            <h3>Currently on the Water: <span id="s-athlete-name" style="color:#d9534f;">-</span></h3>
-            <p><strong>Average Score going in:</strong> <span id="s-athlete-avg">0</span> ft</p>
-            
-            <div id="guess-form-section">
-                <h4>Submit Your Guess</h4>
-                <input type="text" id="s-name" placeholder="Your Name">
-                <input type="number" id="s-guess" placeholder="Your Jump Distance Guess">
-                <button onclick="submitGuess()">Submit Guess</button>
-                <p id="guess-status" style="color: green; font-weight: bold;"></p>
+        <div id="spectator-dashboard" style="display:none;">
+            <div id="spectator-no-active" class="card">
+                <p>Waiting for Scorer/Announcing to select an athlete on the water...</p>
             </div>
-            
-            <hr>
-            <h4>Jump Distance Recorded:</h4>
-            <div class="attempts-grid">
-                <div>Attempt 1: <strong id="s-att-0">-</strong></div>
-                <div>Attempt 2: <strong id="s-att-1">-</strong></div>
-                <div>Attempt 3: <strong id="s-att-2">-</strong></div>
-            </div>
-        </div>
 
-        <!-- WINNERS RESULTS -->
-        <div id="spectator-results" class="winner-box" style="display:none;">
-            <h3>🏆 Round Complete! Results for <span id="res-athlete-name"></span></h3>
-            <p><strong>Final Recorded Distance (Furthest Jump):</strong> <span id="res-furthest"></span> ft</p>
-            <hr>
-            <div id="winners-list"></div>
+            <div id="spectator-active-card" class="card" style="display:none;">
+                <h3>Currently on the Water: <span id="s-athlete-name" style="color:#d9534f;">-</span></h3>
+                <p><strong>Average Score going in:</strong> <span id="s-athlete-avg">0</span> ft</p>
+                
+                <div id="guess-form-section">
+                    <h4>Submit Your Guess</h4>
+                    <input type="text" id="s-name" placeholder="Your Name">
+                    <input type="number" id="s-guess" placeholder="Your Jump Distance Guess">
+                    <button onclick="submitGuess()">Submit Guess</button>
+                    <p id="guess-status" style="color: green; font-weight: bold;"></p>
+                </div>
+                
+                <hr>
+                <h4>Jump Distance Recorded:</h4>
+                <div class="attempts-grid">
+                    <div>Attempt 1: <strong id="s-att-0">-</strong></div>
+                    <div>Attempt 2: <strong id="s-att-1">-</strong></div>
+                    <div>Attempt 3: <strong id="s-att-2">-</strong></div>
+                </div>
+            </div>
+
+            <!-- WINNERS RESULTS -->
+            <div id="spectator-results" class="winner-box" style="display:none;">
+                <h3>🏆 Round Complete! Results for <span id="res-athlete-name"></span></h3>
+                <p><strong>Final Recorded Distance (Furthest Jump):</strong> <span id="res-furthest"></span> ft</p>
+                <hr>
+                <div id="winners-list"></div>
+            </div>
         </div>
     </div>
 
@@ -77,13 +89,22 @@
     <div id="organizer-view" class="view-section">
         <h2>Scorer/Announcing Panel</h2>
         
-        <div id="org-login-section">
-            <p>Enter Scorer/Announcing Passcode:</p>
+        <div id="org-login-section" class="card">
+            <h3>Scorer Login & Event Setup</h3>
+            <label>Tournament Name:</label>
+            <input type="text" id="org-tourney-name" placeholder="e.g., State Championship 2026">
+            
+            <label>Passcode:</label>
             <input type="password" id="org-passcode" placeholder="Passcode">
-            <button onclick="loginOrganizer()">Login</button>
+            
+            <button onclick="loginOrganizer()">Start / Join as Scorer</button>
         </div>
 
         <div id="org-dashboard" style="display:none;">
+            <div class="card" style="background:#d1ecf1; color:#0c5460;">
+                <strong>Active Tournament:</strong> <span id="org-active-tourney-display"></span>
+            </div>
+
             <div class="card">
                 <h3>1. Upload Excel Roster</h3>
                 <p><small>Excel file should have columns named <strong>Name</strong> and <strong>AverageScore</strong></small></p>
@@ -125,6 +146,27 @@
     const socket = io();
     let currentState = {};
     let isOrganizerLoggedIn = false;
+    let currentTournamentName = '';
+
+    // Fetch active tournament list when landing on spectator view
+    socket.emit('getTournamentList');
+
+    socket.on('tournamentList', function(list) {
+        const dropdown = document.getElementById('tourney-dropdown');
+        dropdown.innerHTML = '';
+        
+        if (list.length === 0) {
+            dropdown.innerHTML = '<option value="">No Active Tournaments Found</option>';
+            return;
+        }
+
+        list.forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.innerText = name;
+            dropdown.appendChild(opt);
+        });
+    });
 
     socket.on('stateUpdate', function(state) {
         currentState = state;
@@ -139,7 +181,9 @@
             isOrganizerLoggedIn = true;
             document.getElementById('org-login-section').style.display = 'none';
             document.getElementById('org-dashboard').style.display = 'block';
-            renderOrganizerDashboard();
+            document.getElementById('org-active-tourney-display').innerText = currentTournamentName;
+            
+            socket.emit('joinTournament', currentTournamentName);
         } else {
             alert(res.message);
         }
@@ -154,14 +198,31 @@
         if (tab === 'spectator') {
             document.getElementById('spectator-view').classList.add('active');
             document.getElementById('btn-spectator').classList.add('active');
+            socket.emit('getTournamentList');
         } else {
             document.getElementById('organizer-view').classList.add('active');
             document.getElementById('btn-organizer').classList.add('active');
         }
     }
 
+    function joinSelectedTournament() {
+        const selected = document.getElementById('tourney-dropdown').value;
+        if (!selected) return alert('Select or create a tournament first!');
+
+        currentTournamentName = selected;
+        socket.emit('joinTournament', selected);
+        
+        document.getElementById('spectator-tourney-select').style.display = 'none';
+        document.getElementById('spectator-dashboard').style.display = 'block';
+    }
+
     function loginOrganizer() {
+        const name = document.getElementById('org-tourney-name').value.trim();
         const pass = document.getElementById('org-passcode').value;
+
+        if (!name) return alert('Please enter a Tournament Name');
+        
+        currentTournamentName = name;
         socket.emit('organizerLogin', pass);
     }
 
@@ -171,6 +232,7 @@
 
         const formData = new FormData();
         formData.append('file', fileInput.files[0]);
+        formData.append('tournamentName', currentTournamentName);
 
         fetch('/api/upload', { method: 'POST', body: formData })
             .then(res => res.json())
