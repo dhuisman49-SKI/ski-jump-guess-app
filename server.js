@@ -116,19 +116,24 @@ io.on('connection', (socket) => {
         io.emit('stateUpdate', state);
     });
 
-    // Record Attempt Score
+    // Record Attempt Score (Room Scoped)
     socket.on('recordAttempt', (data) => {
+        const room = socket.currentTournament;
+        if (!room || !tournaments[room]) return;
+
+        const tourney = tournaments[room];
         const { athleteIndex, attemptNum, distance } = data;
-        if (state.athletes[athleteIndex]) {
-            state.athletes[athleteIndex].attempts[attemptNum] = distance;
+
+        if (tourney.athletes[athleteIndex]) {
+            tourney.athletes[athleteIndex].attempts[attemptNum] = distance;
             
-            // Recalculate best score using valid numeric attempts
-            const validAttempts = state.athletes[athleteIndex].attempts.filter(a => a !== null && !isNaN(a));
-            if (validAttempts.length > 0) {
-                state.athletes[athleteIndex].bestScore = Math.max(...validAttempts);
+            const valid = tourney.athletes[athleteIndex].attempts.filter(a => a !== null && !isNaN(a));
+            if (valid.length > 0) {
+                tourney.athletes[athleteIndex].bestScore = Math.max(...valid);
             }
             
-            io.emit('stateUpdate', state);
+            // Broadcasts ONLY to users in this specific tournament room
+            io.to(room).emit('stateUpdate', tourney);
         }
     });
 
